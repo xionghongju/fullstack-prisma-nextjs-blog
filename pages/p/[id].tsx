@@ -1,5 +1,5 @@
 import React from "react";
-import { GetServerSideProps } from "next";
+import type { GetStaticProps } from "next";
 import ReactMarkdown from "react-markdown";
 import Layout from "../../components/Layout";
 import Router from "next/router";
@@ -7,8 +7,21 @@ import { PostProps } from "../../components/Post";
 import prisma from '../../lib/prisma'
 import { useSession } from "next-auth/react";
 
+export const getStaticPaths = async () => {
+  const posts = await prisma.post.findMany({
+    select: {
+      id: true,
+    },
+  });
 
-export const getServerSideProps: GetServerSideProps = async ({ params }) => {
+  const paths = posts.map((post) => ({
+    params: { id: post.id },
+  }));
+
+  return { paths, fallback: 'blocking' };
+};
+
+export const getStaticProps: GetStaticProps = async ({ params }) => {
   const post = await prisma.post.findUnique({
     where: {
       id: String(params?.id) ,
@@ -21,18 +34,19 @@ export const getServerSideProps: GetServerSideProps = async ({ params }) => {
   });
   return {
     props: post,
+    revalidate: 10,
   };
 };
 
 async function publishPost(id: number): Promise<void> {
-  await fetch(`http://localhost:3000/api/publish/${id}`, {
+  await fetch(`/api/publish/${id}`, {
     method: "PUT",
   });
   await Router.push("/")
 }
 
 async function deletePost(id: number): Promise<void> {
-  await fetch(`http://localhost:3000/api/post/${id}`, {
+  await fetch(`/api/post/${id}`, {
     method: "DELETE",
   });
   await Router.push("/")
